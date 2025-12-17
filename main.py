@@ -3,22 +3,28 @@ import os
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
 
-# 管理员白名单 QQ
+# 管理员 QQ 白名单
 ALLOWED_QQ_IDS = [12345678, 87654321]
 
 SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
 
-# 读取服务器
 def load_servers():
+    """安全加载服务器数据，确保返回字典且每个 chat_id 下都是列表"""
     if not os.path.exists(SERVERS_FILE):
         return {}
     try:
         with open(SERVERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+        if not isinstance(data, dict):
+            data = {}
+        for k, v in data.items():
+            if not isinstance(v, list):
+                data[k] = []
+        return data
     except:
+        # JSON 错误或空文件时返回空字典
         return {}
 
-# 保存服务器
 def save_servers(servers):
     with open(SERVERS_FILE, "w", encoding="utf-8") as f:
         json.dump(servers, f, indent=2, ensure_ascii=False)
@@ -30,6 +36,7 @@ async def rcon(event, *, args=""):
         await event.reply("❌ 你没有权限使用 RCON 命令。")
         return
 
+    # 帮助命令
     if not args or args.strip().lower() == "help":
         await event.reply(
             "📌 RCON 命令列表:\n"
@@ -53,7 +60,12 @@ async def rcon(event, *, args=""):
         if len(parts) != 5:
             await event.reply("❌ 参数错误: /rcon add <chat_id> <host> <port> <password>")
             return
-        chat_id, host, port, passwd = parts[1], parts[2], int(parts[3]), parts[4]
+        chat_id, host, port, passwd = parts[1], parts[2], parts[3], parts[4]
+        try:
+            port = int(port)
+        except ValueError:
+            await event.reply("❌ 端口必须是数字")
+            return
         servers.setdefault(str(chat_id), []).append({
             "host": host,
             "port": port,
@@ -69,8 +81,8 @@ async def rcon(event, *, args=""):
             await event.reply("❌ 参数错误: /rcon list <chat_id>")
             return
         chat_id = parts[1]
-        chat_servers = servers.get(str(chat_id), [])
-        if not chat_servers:
+        chat_servers = servers.get(str(chat_id))
+        if not isinstance(chat_servers, list) or not chat_servers:
             await event.reply(f"❌ {chat_id} 没有配置服务器")
             return
         msg = f"📌 {chat_id} 服务器列表:\n"
@@ -91,13 +103,13 @@ async def rcon(event, *, args=""):
             await event.reply("❌ 服务器索引必须是数字")
             return
         user_command = " ".join(parts[3:])
-        chat_servers = servers.get(str(chat_id), [])
+        chat_servers = servers.get(str(chat_id))
 
-        if not chat_servers:
+        if not isinstance(chat_servers, list) or not chat_servers:
             await event.reply(f"❌ {chat_id} 没有配置服务器")
             return
 
-        # ✅ 索引检查，防止 list index out of range
+        # ✅ 防止 list index out of range
         if idx < 0 or idx >= len(chat_servers):
             await event.reply(f"❌ 服务器索引错误，有效范围：0-{len(chat_servers)-1}")
             return

@@ -5,11 +5,12 @@ import traceback
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
 
+# 全局插件实例
 _plugin_instance = None
 
+
 class SquadRconPlugin:
-    def __init__(self, context=None, config=None):
-        self.context = context
+    def __init__(self, config=None):
         self.config = config or {}
         self.data_file = os.path.join(os.path.dirname(__file__), "servers.json")
         self.servers = self._load_servers()
@@ -17,7 +18,7 @@ class SquadRconPlugin:
         global _plugin_instance
         _plugin_instance = self
 
-        print("插件初始化完成")
+        print("SquadRconPlugin 加载完成")
 
     def _load_servers(self):
         if not os.path.exists(self.data_file):
@@ -52,16 +53,30 @@ class SquadRconPlugin:
         return user_id in self.config.get("allowed_qq_ids", [])
 
 
-@filter.command("rcon")
-async def rcon(event, *, text: str = ""):
+# ----------------- 消息监听 -----------------
+@filter.message()
+async def rcon_handler(event):
+    """简化版 /rcon 命令处理，保证消息能被捕获"""
     global _plugin_instance
     plugin = _plugin_instance
     if not plugin:
-        await event.reply("❌ 插件未初始化")
+        try:
+            await event.reply("❌ 插件未初始化")
+        except:
+            print("无法发送插件未初始化消息")
         return
 
-    print("触发 /rcon 命令:", text)
+    message = getattr(event, "message", "")
+    if not message.startswith("/rcon"):
+        return  # 忽略非 /rcon 消息
+
+    # 去掉命令前缀
+    text = message[len("/rcon"):].strip()
+
+    print("收到 /rcon 命令:", text)
+
     try:
+        # 获取用户ID
         user_id = getattr(event, "user_id", None)
         if user_id is None and hasattr(event, "sender"):
             sender = event.sender
@@ -70,16 +85,19 @@ async def rcon(event, *, text: str = ""):
             elif isinstance(sender, dict):
                 user_id = sender.get("user_id")
 
+        # 权限检查
         if user_id and not plugin._has_permission(user_id):
             await event.reply("❌ 你没有权限使用 RCON")
             return
 
-        args = (text or "").strip().split()
+        args = text.split()
         if not args:
             args = ["help"]
 
         action = args[0].lower()
         key = plugin._session_key(event)
+
+        # 初始化会话存储
         if key not in plugin.servers or not isinstance(plugin.servers[key], dict):
             plugin.servers[key] = {}
             plugin._save_servers()
@@ -154,14 +172,14 @@ async def rcon(event, *, text: str = ""):
             return
 
         host, port, password = server["host"], server["port"], server["password"]
+
+        # 发送 RCON 命令
         try:
             async with GameRCON(host, port, password, timeout=10) as rcon_conn:
                 result = await rcon_conn.send(text)
+            await event.reply(f"🎮【{current}】\n{result}")
         except Exception as e:
             await event.reply(f"⚠️ RCON 执行失败：{e}")
-            return
-
-        await event.reply(f"🎮【{current}】\n{result}")
 
     except Exception as e:
         print("RCON 命令处理异常:", e)

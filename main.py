@@ -52,7 +52,6 @@ class SquadRconPlugin(Star):
         try:
             user_id = event.get_sender_id()
         except Exception:
-            # 使用 event.plain_result() 而不是 await event.reply()
             yield event.plain_result("❌ 无法获取用户 ID")
             return
 
@@ -159,22 +158,42 @@ class SquadRconPlugin(Star):
 
         cmd = " ".join(parts)
         
-        # 发送"正在处理"的消息 - 使用 event.plain_result()
-        yield event.plain_result("⏳ 正在执行 RCON 命令...")
+        # 显示正在执行的命令
+        yield event.plain_result(f"⏳ 正在执行命令: `{cmd}`")
         
         try:
+            # 调试信息
+            print(f"[RCON] 连接到 {host}:{port}")
+            print(f"[RCON] 发送命令: {cmd}")
+            
             # 使用 asyncio 的 timeout 来控制超时
             async with GameRCON(host, port, pwd, timeout=15) as client:
                 # 发送命令并获取响应
                 resp = await client.send(cmd)
                 
-                if resp:
-                    # 限制回复长度，避免消息过长
-                    if len(resp) > 2000:
-                        resp = resp[:2000] + "\n... (响应过长，已截断)"
-                    yield event.plain_result(f"🎮 命令执行成功:\n```\n{resp}\n```")
+                # 调试信息
+                print(f"[RCON] 收到响应: {repr(resp)}")
+                print(f"[RCON] 响应类型: {type(resp)}")
+                
+                # 处理空响应
+                if resp is None:
+                    yield event.plain_result("✅ 命令已执行（无返回内容）")
+                elif isinstance(resp, str):
+                    resp = resp.strip()
+                    if resp:
+                        # 限制回复长度，避免消息过长
+                        if len(resp) > 1000:
+                            resp = resp[:1000] + "\n... (响应过长，已截断)"
+                        yield event.plain_result(f"🎮 命令执行结果:\n```\n{resp}\n```")
+                    else:
+                        yield event.plain_result("✅ 命令已执行（空响应）")
                 else:
-                    yield event.plain_result("✅ 命令已发送，但服务器没有返回响应")
+                    # 处理非字符串响应
+                    resp_str = str(resp).strip()
+                    if resp_str:
+                        yield event.plain_result(f"🎮 命令执行结果:\n```\n{resp_str}\n```")
+                    else:
+                        yield event.plain_result("✅ 命令已执行")
                     
         except asyncio.TimeoutError:
             yield event.plain_result("⏰ RCON 连接超时，请检查服务器状态和网络连接")
@@ -182,5 +201,5 @@ class SquadRconPlugin(Star):
             yield event.plain_result("🔌 连接被拒绝，请检查服务器IP、端口和RCON是否开启")
         except Exception as e:
             error_msg = f"⚠️ RCON 执行失败：{str(e)}"
-            print(f"RCON 错误详情: {traceback.format_exc()}")
+            print(f"[RCON] 错误详情: {traceback.format_exc()}")
             yield event.plain_result(error_msg)

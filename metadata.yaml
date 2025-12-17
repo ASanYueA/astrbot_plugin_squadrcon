@@ -1,0 +1,6 @@
+name: astrbot_plugin_squadrcon
+display_name: Squad[战术小队]RCON管理
+desc: AstrBot Squad[战术小队]RCON插件。
+version: v0.1.0
+author: 三月
+repo: https://github.com/ASanYueA/astrbot_plugin_squadrcon

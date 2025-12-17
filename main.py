@@ -1,8 +1,11 @@
+import json
+import os
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
-import json, os
 
+# 管理员 QQ 白名单
 ALLOWED_QQ_IDS = [12345678, 87654321]
+
 SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
 
 def load_servers():
@@ -21,25 +24,24 @@ def save_servers(servers):
 @filter.command("rcon")
 async def rcon(event, *, args=""):
     """
-    最新 AstrBot 版本通用写法：
-    event 直接是事件对象，不需要导入 AiocqhttpMessageEvent 或 MessageEvent
+    通用最新 AstrBot 版本写法
     """
     user_id = getattr(event, "user_id", None)
     if user_id not in ALLOWED_QQ_IDS:
         await event.reply("❌ 你没有权限使用 RCON 命令。")
         return
 
+    # 帮助
     if not args or args.strip().lower() == "help":
         await event.reply(
             "📌 RCON 命令列表:\n"
-            "/rcon help\n"
-            "/rcon add <chat_id> <host> <port> <password>\n"
-            "/rcon list <chat_id>\n"
-            "/rcon send <chat_id> <server_index> <命令>"
+            "/rcon help - 显示此帮助\n"
+            "/rcon add <chat_id> <host> <port> <password> - 添加服务器\n"
+            "/rcon list <chat_id> - 列出服务器\n"
+            "/rcon send <chat_id> <server_index> <命令> - 发送 RCON 命令\n"
         )
         return
 
-    # 参数解析
     parts = args.strip().split()
     if not parts:
         await event.reply("❌ 参数错误，请使用 /rcon help 查看命令。")
@@ -48,6 +50,7 @@ async def rcon(event, *, args=""):
     command = parts[0].lower()
     servers = load_servers()
 
+    # 添加服务器
     if command == "add":
         if len(parts) != 5:
             await event.reply("❌ 参数错误: /rcon add <chat_id> <host> <port> <password>")
@@ -62,6 +65,7 @@ async def rcon(event, *, args=""):
         await event.reply(f"✅ 已为 {chat_id} 添加服务器 {host}:{port}")
         return
 
+    # 列出服务器
     elif command == "list":
         if len(parts) != 2:
             await event.reply("❌ 参数错误: /rcon list <chat_id>")
@@ -77,6 +81,7 @@ async def rcon(event, *, args=""):
         await event.reply(msg)
         return
 
+    # 发送 RCON 命令
     elif command == "send":
         if len(parts) < 4:
             await event.reply("❌ 参数错误: /rcon send <chat_id> <server_index> <命令>")
@@ -84,9 +89,15 @@ async def rcon(event, *, args=""):
         chat_id, idx = parts[1], int(parts[2])
         user_command = " ".join(parts[3:])
         chat_servers = servers.get(str(chat_id), [])
-        if idx >= len(chat_servers) or idx < 0:
-            await event.reply("❌ 服务器索引错误")
+
+        if not chat_servers:
+            await event.reply(f"❌ {chat_id} 没有配置服务器")
             return
+
+        if idx < 0 or idx >= len(chat_servers):
+            await event.reply(f"❌ 服务器索引错误，有效范围：0-{len(chat_servers)-1}")
+            return
+
         s = chat_servers[idx]
         try:
             async with GameRCON(s["host"], s["port"], s["password"], timeout=10) as client:

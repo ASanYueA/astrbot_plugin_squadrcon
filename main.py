@@ -3,11 +3,12 @@ import os
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
 
-# QQ 白名单
+# 管理员白名单 QQ
 ALLOWED_QQ_IDS = [12345678, 87654321]
 
 SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
 
+# 读取服务器
 def load_servers():
     if not os.path.exists(SERVERS_FILE):
         return {}
@@ -17,6 +18,7 @@ def load_servers():
     except:
         return {}
 
+# 保存服务器
 def save_servers(servers):
     with open(SERVERS_FILE, "w", encoding="utf-8") as f:
         json.dump(servers, f, indent=2, ensure_ascii=False)
@@ -31,7 +33,7 @@ async def rcon(event, *, args=""):
     if not args or args.strip().lower() == "help":
         await event.reply(
             "📌 RCON 命令列表:\n"
-            "/rcon help - 显示帮助\n"
+            "/rcon help - 显示此帮助\n"
             "/rcon add <chat_id> <host> <port> <password> - 添加服务器\n"
             "/rcon list <chat_id> - 列出服务器\n"
             "/rcon send <chat_id> <server_index> <命令> - 发送 RCON 命令\n"
@@ -95,6 +97,7 @@ async def rcon(event, *, args=""):
             await event.reply(f"❌ {chat_id} 没有配置服务器")
             return
 
+        # ✅ 索引检查，防止 list index out of range
         if idx < 0 or idx >= len(chat_servers):
             await event.reply(f"❌ 服务器索引错误，有效范围：0-{len(chat_servers)-1}")
             return

@@ -16,13 +16,16 @@ class SquadRconPlugin:
         )
         self.servers = self._load_servers()
 
-    # ---------- 数据存储 ----------
+    # ---------- 存储 ----------
 
     def _load_servers(self):
         if not os.path.exists(self.data_file):
             return {}
-        with open(self.data_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+        try:
+            with open(self.data_file, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
 
     def _save_servers(self):
         with open(self.data_file, "w", encoding="utf-8") as f:
@@ -35,40 +38,40 @@ class SquadRconPlugin:
 
     # ---------- 权限 ----------
 
-    def _check_permission(self, user_id):
-        allowed = self.config.get("allowed_qq_ids", [])
-        return user_id in allowed
+    def _has_permission(self, user_id):
+        return user_id in self.config.get("allowed_qq_ids", [])
 
     # ---------- 主命令 ----------
 
     @filter.command("rcon")
-    async def rcon(self, event: AstrMessageEvent, *args):
-        user_id = event.user_id
-        if not self._check_permission(user_id):
+    async def rcon(self, event: AstrMessageEvent, *, text: str = ""):
+        if not self._has_permission(event.user_id):
             await event.reply("❌ 你没有权限使用 RCON")
             return
 
+        args = text.split()
         if not args:
-            await event.reply("❌ 用法错误，输入 /rcon help 查看帮助")
-            return
+            args = ["help"]
 
         action = args[0]
         key = self._session_key(event)
         self.servers.setdefault(key, {})
 
-        # ----- 帮助 -----
+        # ---- help ----
         if action == "help":
             await event.reply(
-                "🎮 Squad RCON\n"
+                "🎮 Squad RCON 使用说明\n\n"
                 "/rcon add <名> <IP> <端口> <密码>\n"
                 "/rcon use <名>\n"
                 "/rcon del <名>\n"
                 "/rcon list\n"
-                "/rcon <RCON命令>"
+                "/rcon <RCON命令>\n\n"
+                "示例：\n"
+                "/rcon ListPlayers"
             )
             return
 
-        # ----- 添加服务器 -----
+        # ---- add ----
         if action == "add" and len(args) == 5:
             name, host, port, password = args[1:]
             self.servers[key][name] = {
@@ -81,7 +84,7 @@ class SquadRconPlugin:
             await event.reply(f"✅ 已添加并切换到服务器 `{name}`")
             return
 
-        # ----- 切换服务器 -----
+        # ---- use ----
         if action == "use" and len(args) == 2:
             name = args[1]
             if name not in self.servers[key]:
@@ -92,40 +95,35 @@ class SquadRconPlugin:
             await event.reply(f"✅ 已切换到服务器 `{name}`")
             return
 
-        # ----- 删除服务器 -----
+        # ---- del ----
         if action == "del" and len(args) == 2:
             name = args[1]
-            if name not in self.servers[key]:
-                await event.reply("❌ 服务器不存在")
-                return
-            del self.servers[key][name]
+            self.servers[key].pop(name, None)
             self._save_servers()
             await event.reply(f"🗑 已删除服务器 `{name}`")
             return
 
-        # ----- 列表 -----
+        # ---- list ----
         if action == "list":
-            items = []
             current = self.servers[key].get("_current")
-            for name in self.servers[key]:
-                if name == "_current":
-                    continue
-                flag = "⭐" if name == current else ""
-                items.append(f"{flag}{name}")
-            if not items:
-                await event.reply("📭 当前没有服务器")
-            else:
-                await event.reply("📡 服务器列表：\n" + "\n".join(items))
+            names = [
+                ("⭐ " if n == current else "") + n
+                for n in self.servers[key]
+                if n != "_current"
+            ]
+            await event.reply(
+                "📡 服务器列表：\n" + ("\n".join(names) if names else "（空）")
+            )
             return
 
-        # ----- 执行 RCON -----
+        # ---- RCON ----
         current = self.servers[key].get("_current")
-        if not current or current not in self.servers[key]:
-            await event.reply("❌ 未选择服务器，请先 /rcon add 或 /rcon use")
+        if not current:
+            await event.reply("❌ 未选择服务器，请先 /rcon add")
             return
 
         server = self.servers[key][current]
-        command = " ".join(args)
+        command = text
 
         try:
             async with GameRCON(
@@ -139,8 +137,4 @@ class SquadRconPlugin:
             await event.reply(f"⚠️ RCON 执行失败：{e}")
             return
 
-        await event.reply(
-            f"🎮【{current}】\n"
-            f"📤 {command}\n"
-            f"📥 {result}"
-        )
+        await event.reply(f"🎮【{current}】\n{result}")

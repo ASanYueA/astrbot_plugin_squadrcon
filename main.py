@@ -3,7 +3,7 @@ import os
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
 
-# 管理员 QQ 白名单
+# QQ 白名单
 ALLOWED_QQ_IDS = [12345678, 87654321]
 
 SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
@@ -23,19 +23,15 @@ def save_servers(servers):
 
 @filter.command("rcon")
 async def rcon(event, *, args=""):
-    """
-    通用最新 AstrBot 版本写法
-    """
     user_id = getattr(event, "user_id", None)
     if user_id not in ALLOWED_QQ_IDS:
         await event.reply("❌ 你没有权限使用 RCON 命令。")
         return
 
-    # 帮助
     if not args or args.strip().lower() == "help":
         await event.reply(
             "📌 RCON 命令列表:\n"
-            "/rcon help - 显示此帮助\n"
+            "/rcon help - 显示帮助\n"
             "/rcon add <chat_id> <host> <port> <password> - 添加服务器\n"
             "/rcon list <chat_id> - 列出服务器\n"
             "/rcon send <chat_id> <server_index> <命令> - 发送 RCON 命令\n"
@@ -86,7 +82,12 @@ async def rcon(event, *, args=""):
         if len(parts) < 4:
             await event.reply("❌ 参数错误: /rcon send <chat_id> <server_index> <命令>")
             return
-        chat_id, idx = parts[1], int(parts[2])
+        chat_id = parts[1]
+        try:
+            idx = int(parts[2])
+        except ValueError:
+            await event.reply("❌ 服务器索引必须是数字")
+            return
         user_command = " ".join(parts[3:])
         chat_servers = servers.get(str(chat_id), [])
 
@@ -105,6 +106,7 @@ async def rcon(event, *, args=""):
         except Exception as e:
             await event.reply(f"⚠️ 执行失败: {e}")
             return
+
         await event.reply(f"📡 执行命令: {user_command}\n📥 响应:\n```\n{response}\n```")
         return
 

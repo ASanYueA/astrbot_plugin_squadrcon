@@ -7,16 +7,16 @@ class SquadRconPlugin:
     战术小队服务器 RCON 管理插件
     """
 
-    def __init__(self, config):
-        # ⚠️ 老版本 AstrBot 只会传 config
-        self.config = config
+    def __init__(self, context=None, config=None):
+        # 老 / 新 AstrBot 都能兼容
+        self.context = context
+        self.config = config or {}
 
     @filter.command("rcon")
     async def rcon(self, event: AstrMessageEvent, *, command: str):
-        # QQ 号
         user_id = event.user_id
 
-        # 权限校验
+        # 权限检查
         allowed_ids = self.config.get("allowed_qq_ids", [])
         if user_id not in allowed_ids:
             await event.reply("❌ 你没有权限使用该 RCON 命令")
@@ -24,7 +24,7 @@ class SquadRconPlugin:
 
         # RCON 配置
         host = self.config.get("rcon_host", "127.0.0.1")
-        port = self.config.get("rcon_port", 21114)  # Squad 默认
+        port = self.config.get("rcon_port", 21114)
         password = self.config.get("rcon_password")
 
         if not password:

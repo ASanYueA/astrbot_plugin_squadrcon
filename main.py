@@ -42,14 +42,30 @@ class SquadRconPlugin(Star):
             return f"group_{group_id}"
         return f"private_{user_id}"
 
-    def _has_permission(self, user_id: int):
-        return user_id in self.config.get("allowed_qq_ids", [])
+    def _has_permission(self, user_id):
+        """检查 user_id 是否在白名单"""
+        if user_id is None:
+            return False
+        allowed_ids = self.config.get("allowed_qq_ids", [])
+        try:
+            user_id_int = int(user_id)
+        except:
+            return False
+        return user_id_int in allowed_ids
 
     # ----------------- /rcon 指令 -----------------
     @filter.command("rcon")
     async def rcon(self, event: AstrMessageEvent):
         try:
-            user_id = getattr(event, "user_id", None) or getattr(event, "sender", {}).get("user_id", None)
+            # 获取用户 ID
+            user_id = getattr(event, "user_id", None)
+            if user_id is None and hasattr(event, "sender"):
+                sender = event.sender
+                if hasattr(sender, "user_id"):
+                    user_id = sender.user_id
+                elif isinstance(sender, dict):
+                    user_id = sender.get("user_id")
+
             if not self._has_permission(user_id):
                 yield event.plain_result("❌ 你没有权限使用 RCON")
                 return
@@ -132,7 +148,7 @@ class SquadRconPlugin(Star):
                 yield event.plain_result(text)
                 return
 
-            # ---- RCON 命令 ----
+            # ---- RCON 执行 ----
             current = self.servers[key].get("_current")
             if not current:
                 yield event.plain_result("❌ 尚未选择服务器，请先 /rcon add 或 /rcon use")

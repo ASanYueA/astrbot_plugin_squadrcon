@@ -1,7 +1,8 @@
 {
   "allowed_qq_ids": {
     "type": "list",
-    "default": [],
-    "description": "允许使用 RCON 的 QQ 号列表"
+    "items": { "type": "int" },
+    "description": "允许使用 RCON 的 QQ 列表",
+    "default": []
   }
 }

@@ -1,9 +1,9 @@
 import json
 import os
-from astrbot.api.event import filter, AiocqhttpMessageEvent
+from astrbot.api.event import filter, MessageEvent
 from gamercon_async import GameRCON
 
-# 可修改为你的 QQ 白名单
+# QQ 白名单，可修改为实际管理员 QQ
 ALLOWED_QQ_IDS = [12345678, 87654321]
 
 SERVERS_FILE = os.path.join(os.path.dirname(__file__), "servers.json")
@@ -22,7 +22,7 @@ def save_servers(servers):
         json.dump(servers, f, indent=2, ensure_ascii=False)
 
 @filter.command("rcon")
-async def rcon(event: AiocqhttpMessageEvent, *, args: str = ""):
+async def rcon(event: MessageEvent, *, args: str = ""):
     user_id = event.user_id
 
     # 权限检查

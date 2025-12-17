@@ -35,6 +35,7 @@ class SquadRconPlugin(Star):
         except Exception as e:
             print(f"[ERROR] 保存 servers.json 失败: {e}")
 
+    # ----------------- 会话和权限 -----------------
     def _session_key(self, event: AstrMessageEvent):
         group_id = getattr(event, "group_id", None)
         user_id = getattr(event, "user_id", None)

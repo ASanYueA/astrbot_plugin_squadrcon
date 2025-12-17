@@ -38,10 +38,37 @@ class SquadRconPlugin:
         with open(self.data_file, "w", encoding="utf-8") as f:
             json.dump(self.servers, f, indent=2, ensure_ascii=False)
 
-    def _session_key(self, event: AstrMessageEvent):
-        if event.group_id:
-            return f"group_{event.group_id}"
-        return f"private_{event.user_id}"
+    def _session_key(self, event):
+        """从事件中获取会话key"""
+        # 尝试多种方式获取群ID和用户ID
+        group_id = None
+        user_id = None
+        
+        # 尝试获取群ID
+        if hasattr(event, 'group_id'):
+            group_id = event.group_id
+        elif hasattr(event, 'group'):
+            group_id = event.group
+        elif hasattr(event, '_group_id'):
+            group_id = event._group_id
+        
+        # 尝试获取用户ID
+        if hasattr(event, 'user_id'):
+            user_id = event.user_id
+        elif hasattr(event, 'sender'):
+            sender = event.sender
+            if hasattr(sender, 'user_id'):
+                user_id = sender.user_id
+            elif isinstance(sender, dict) and 'user_id' in sender:
+                user_id = sender['user_id']
+        
+        if group_id:
+            return f"group_{group_id}"
+        elif user_id:
+            return f"private_{user_id}"
+        else:
+            # 如果都无法获取，使用默认值
+            return "default"
 
     def _has_permission(self, user_id):
         return user_id in self.config.get("allowed_qq_ids", [])
@@ -49,7 +76,7 @@ class SquadRconPlugin:
 
 # 命令处理函数（独立函数，不是类方法）
 @filter.command("rcon")
-async def rcon(event: AstrMessageEvent, *, text: str = ""):
+async def rcon(event, *, text: str = ""):
     """RCON 命令处理器"""
     
     global _plugin_instance
@@ -59,7 +86,18 @@ async def rcon(event: AstrMessageEvent, *, text: str = ""):
     
     plugin = _plugin_instance
     
-    if not plugin._has_permission(event.user_id):
+    # 获取用户ID
+    user_id = None
+    if hasattr(event, 'user_id'):
+        user_id = event.user_id
+    elif hasattr(event, 'sender'):
+        sender = event.sender
+        if hasattr(sender, 'user_id'):
+            user_id = sender.user_id
+        elif isinstance(sender, dict) and 'user_id' in sender:
+            user_id = sender['user_id']
+    
+    if user_id and not plugin._has_permission(user_id):
         await event.reply("❌ 你没有权限使用 RCON")
         return
 
@@ -152,9 +190,9 @@ async def rcon(event: AstrMessageEvent, *, text: str = ""):
             server["port"],
             server["password"],
             timeout=10
-        ) as rcon:
+        ) as rcon_conn:
             # 如果是 help、add、use、del、list 之外的命令，直接发送给服务器
-            result = await rcon.send(text)
+            result = await rcon_conn.send(text)
     except Exception as e:
         await event.reply(f"⚠️ RCON 执行失败：{e}")
         return

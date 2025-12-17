@@ -42,7 +42,7 @@ class SquadRconPlugin:
     # ---------- 命令处理函数 ----------
 
     @filter.command("rcon")
-    async def rcon(self, event: AstrMessageEvent, *, text: str = ""):
+    async def rcon(self, event: AstrMessageEvent, text: str = ""):
         """RCON 命令处理器"""
         
         if not self._has_permission(event.user_id):

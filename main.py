@@ -38,6 +38,8 @@ async def rcon(event, *, args=""):
         return
 
     args = (args or "").strip()
+    
+    # 检查是否为空或help命令
     if not args or args.lower() == "help":
         await event.reply(
             "📌 RCON 命令列表:\n"
@@ -49,6 +51,12 @@ async def rcon(event, *, args=""):
         return
 
     parts = args.split()
+    
+    # 检查parts是否为空（额外的安全措施）
+    if len(parts) == 0:
+        await event.reply("❌ 参数错误，请使用 /rcon help 查看命令。")
+        return
+    
     command = parts[0].lower()
     servers = load_servers()
 

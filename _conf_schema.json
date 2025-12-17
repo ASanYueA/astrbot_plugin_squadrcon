@@ -1,18 +1,4 @@
 {
-  "rcon_host": {
-    "type": "string",
-    "default": "127.0.0.1",
-    "description": "RCON 地址"
-  },
-  "rcon_port": {
-    "type": "int",
-    "default": 21114,
-    "description": "Squad RCON 端口"
-  },
-  "rcon_password": {
-    "type": "string",
-    "description": "RCON 密码"
-  },
   "allowed_qq_ids": {
     "type": "list",
     "default": [],

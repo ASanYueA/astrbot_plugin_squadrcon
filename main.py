@@ -5,16 +5,12 @@ import traceback
 from astrbot.api.event import filter
 from gamercon_async import GameRCON
 
-# 全局插件实例
 _plugin_instance = None
 
-
 class SquadRconPlugin:
-
     def __init__(self, context=None, config=None):
         self.context = context
         self.config = config or {}
-
         self.data_file = os.path.join(os.path.dirname(__file__), "servers.json")
         self.servers = self._load_servers()
 
@@ -22,11 +18,7 @@ class SquadRconPlugin:
         _plugin_instance = self
 
         print("插件初始化完成")
-        if context:
-            print(f"Context 类型: {type(context)}")
-            print(f"Context 属性: {dir(context)}")
 
-    # ---------- 存储 ----------
     def _load_servers(self):
         if not os.path.exists(self.data_file):
             return {}
@@ -36,7 +28,7 @@ class SquadRconPlugin:
             if not isinstance(data, dict):
                 data = {}
             return data
-        except Exception:
+        except:
             return {}
 
     def _save_servers(self):
@@ -47,17 +39,8 @@ class SquadRconPlugin:
             print(f"保存 servers.json 失败: {e}")
 
     def _session_key(self, event):
-        """根据事件生成 session key，群聊和私聊分开"""
         group_id = getattr(event, "group_id", None)
-        if group_id is None and hasattr(event, "group"):
-            group_id = getattr(event, "group", None)
         user_id = getattr(event, "user_id", None)
-        if user_id is None and hasattr(event, "sender"):
-            sender = event.sender
-            if hasattr(sender, "user_id"):
-                user_id = sender.user_id
-            elif isinstance(sender, dict):
-                user_id = sender.get("user_id")
         if group_id:
             return f"group_{group_id}"
         elif user_id:
@@ -69,20 +52,16 @@ class SquadRconPlugin:
         return user_id in self.config.get("allowed_qq_ids", [])
 
 
-# ---------- RCON 命令处理 ----------
 @filter.command("rcon")
 async def rcon(event, *, text: str = ""):
     global _plugin_instance
-    if not _plugin_instance:
-        try:
-            await event.reply("❌ 插件未初始化")
-        except:
-            print("无法发送插件未初始化消息")
+    plugin = _plugin_instance
+    if not plugin:
+        await event.reply("❌ 插件未初始化")
         return
 
-    plugin = _plugin_instance
+    print("触发 /rcon 命令:", text)
     try:
-        # 获取用户ID
         user_id = getattr(event, "user_id", None)
         if user_id is None and hasattr(event, "sender"):
             sender = event.sender
@@ -101,8 +80,6 @@ async def rcon(event, *, text: str = ""):
 
         action = args[0].lower()
         key = plugin._session_key(event)
-
-        # 确保该会话有字典存储
         if key not in plugin.servers or not isinstance(plugin.servers[key], dict):
             plugin.servers[key] = {}
             plugin._save_servers()
@@ -133,6 +110,14 @@ async def rcon(event, *, text: str = ""):
             await event.reply(f"✅ 已添加并切换到服务器 `{name}`")
             return
 
+        # ---- list ----
+        if action == "list":
+            current = plugin.servers[key].get("_current")
+            names = [("⭐ " if n == current else "") + n
+                     for n in plugin.servers[key] if n != "_current"]
+            await event.reply("📡 服务器列表：\n" + ("\n".join(names) if names else "（空）"))
+            return
+
         # ---- use ----
         if action == "use" and len(args) == 2:
             name = args[1]
@@ -157,14 +142,6 @@ async def rcon(event, *, text: str = ""):
                 await event.reply(f"❌ 未找到服务器 `{name}`")
             return
 
-        # ---- list ----
-        if action == "list":
-            current = plugin.servers[key].get("_current")
-            names = [("⭐ " if n == current else "") + n
-                     for n in plugin.servers[key] if n != "_current"]
-            await event.reply("📡 服务器列表：\n" + ("\n".join(names) if names else "（空）"))
-            return
-
         # ---- RCON 命令 ----
         current = plugin.servers[key].get("_current")
         if not current:
@@ -172,17 +149,11 @@ async def rcon(event, *, text: str = ""):
             return
 
         server = plugin.servers[key].get(current)
-        if not server or not isinstance(server, dict):
-            await event.reply(f"❌ 当前服务器 `{current}` 配置不正确")
-            return
-
-        host = server.get("host")
-        port = server.get("port")
-        password = server.get("password")
-        if not host or not port or not password:
+        if not server or not all(k in server for k in ("host", "port", "password")):
             await event.reply(f"❌ 当前服务器 `{current}` 配置不完整")
             return
 
+        host, port, password = server["host"], server["port"], server["password"]
         try:
             async with GameRCON(host, port, password, timeout=10) as rcon_conn:
                 result = await rcon_conn.send(text)
@@ -193,7 +164,7 @@ async def rcon(event, *, text: str = ""):
         await event.reply(f"🎮【{current}】\n{result}")
 
     except Exception as e:
-        print(f"处理命令异常: {e}")
+        print("RCON 命令处理异常:", e)
         traceback.print_exc()
         try:
             await event.reply(f"❌ 处理命令时发生错误: {e}")

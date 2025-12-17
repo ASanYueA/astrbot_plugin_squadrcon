@@ -52,7 +52,8 @@ class SquadRconPlugin(Star):
         try:
             user_id = event.get_sender_id()
         except Exception:
-            await event.reply("❌ 无法获取用户 ID")
+            # 使用 event.plain_result() 而不是 await event.reply()
+            yield event.plain_result("❌ 无法获取用户 ID")
             return
 
         if not self._has_permission(user_id):
@@ -158,8 +159,8 @@ class SquadRconPlugin(Star):
 
         cmd = " ".join(parts)
         
-        # 发送"正在处理"的消息
-        await event.reply("⏳ 正在执行 RCON 命令...")
+        # 发送"正在处理"的消息 - 使用 event.plain_result()
+        yield event.plain_result("⏳ 正在执行 RCON 命令...")
         
         try:
             # 使用 asyncio 的 timeout 来控制超时

@@ -1,0 +1,22 @@
+{
+  "rcon_host": {
+    "description": "RCON 主机地址",
+    "type": "string",
+    "default": "127.0.0.1"
+  },
+  "rcon_port": {
+    "description": "RCON 端口",
+    "type": "integer",
+    "default": 25575
+  },
+  "rcon_password": {
+    "description": "RCON 密码",
+    "type": "string"
+  },
+  "allowed_qq_ids": {
+    "description": "允许使用 RCON 的 QQ ID 列表",
+    "type": "array",
+    "items": { "type": "integer" },
+    "default": []
+  }
+}

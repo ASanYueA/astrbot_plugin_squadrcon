@@ -39,14 +39,13 @@ class SquadRconPlugin:
     def _has_permission(self, user_id):
         return user_id in self.config.get("allowed_qq_ids", [])
 
-    # ---------- ❗命令处理函数：不要 self ----------
+    # ---------- 命令处理函数 ----------
 
     @filter.command("rcon")
-    async def rcon(event: AstrMessageEvent, *, text: str = ""):
-        # 通过 event.context 反查插件实例
-        plugin: "SquadRconPlugin" = event.context.plugin
-
-        if not plugin._has_permission(event.user_id):
+    async def rcon(self, event: AstrMessageEvent, *, text: str = ""):
+        """RCON 命令处理器"""
+        
+        if not self._has_permission(event.user_id):
             await event.reply("❌ 你没有权限使用 RCON")
             return
 
@@ -55,8 +54,8 @@ class SquadRconPlugin:
             args = ["help"]
 
         action = args[0]
-        key = plugin._session_key(event)
-        plugin.servers.setdefault(key, {})
+        key = self._session_key(event)
+        self.servers.setdefault(key, {})
 
         # ---- help ----
         if action == "help":
@@ -73,22 +72,47 @@ class SquadRconPlugin:
         # ---- add ----
         if action == "add" and len(args) == 5:
             name, host, port, password = args[1:]
-            plugin.servers[key][name] = {
+            self.servers[key][name] = {
                 "host": host,
                 "port": int(port),
                 "password": password
             }
-            plugin.servers[key]["_current"] = name
-            plugin._save_servers()
+            self.servers[key]["_current"] = name
+            self._save_servers()
             await event.reply(f"✅ 已添加并切换到服务器 `{name}`")
+            return
+        
+        # ---- use ----
+        if action == "use" and len(args) == 2:
+            name = args[1]
+            if name in self.servers[key]:
+                self.servers[key]["_current"] = name
+                self._save_servers()
+                await event.reply(f"✅ 已切换到服务器 `{name}`")
+            else:
+                await event.reply(f"❌ 未找到服务器 `{name}`")
+            return
+        
+        # ---- del ----
+        if action == "del" and len(args) == 2:
+            name = args[1]
+            if name in self.servers[key]:
+                del self.servers[key][name]
+                # 如果删除的是当前服务器，清除当前选择
+                if self.servers[key].get("_current") == name:
+                    del self.servers[key]["_current"]
+                self._save_servers()
+                await event.reply(f"✅ 已删除服务器 `{name}`")
+            else:
+                await event.reply(f"❌ 未找到服务器 `{name}`")
             return
 
         # ---- list ----
         if action == "list":
-            current = plugin.servers[key].get("_current")
+            current = self.servers[key].get("_current")
             names = [
                 ("⭐ " if n == current else "") + n
-                for n in plugin.servers[key]
+                for n in self.servers[key]
                 if n != "_current"
             ]
             await event.reply(
@@ -96,13 +120,17 @@ class SquadRconPlugin:
             )
             return
 
-        # ---- RCON ----
-        current = plugin.servers[key].get("_current")
+        # ---- RCON 命令 ----
+        current = self.servers[key].get("_current")
         if not current:
             await event.reply("❌ 未选择服务器，请先 /rcon add")
             return
 
-        server = plugin.servers[key][current]
+        if current not in self.servers[key]:
+            await event.reply(f"❌ 服务器 `{current}` 不存在")
+            return
+
+        server = self.servers[key][current]
 
         try:
             async with GameRCON(
@@ -111,6 +139,7 @@ class SquadRconPlugin:
                 server["password"],
                 timeout=10
             ) as rcon:
+                # 如果是 help、add、use、del、list 之外的命令，直接发送给服务器
                 result = await rcon.send(text)
         except Exception as e:
             await event.reply(f"⚠️ RCON 执行失败：{e}")

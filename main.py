@@ -1,6 +1,4 @@
-from astrbot.api import Context, AstrBotConfig
 from astrbot.api.event import AstrMessageEvent, filter
-
 from gamercon_async import GameRCON
 
 
@@ -9,24 +7,24 @@ class SquadRconPlugin:
     战术小队服务器 RCON 管理插件
     """
 
-    def __init__(self, context: Context, config: AstrBotConfig):
-        self.context = context
+    def __init__(self, config):
+        # ⚠️ 老版本 AstrBot 只会传 config
         self.config = config
 
     @filter.command("rcon")
     async def rcon(self, event: AstrMessageEvent, *, command: str):
-        # 获取 QQ 号
+        # QQ 号
         user_id = event.user_id
 
-        # 权限检查
+        # 权限校验
         allowed_ids = self.config.get("allowed_qq_ids", [])
         if user_id not in allowed_ids:
-            await event.reply("❌ 你没有权限使用该命令")
+            await event.reply("❌ 你没有权限使用该 RCON 命令")
             return
 
         # RCON 配置
         host = self.config.get("rcon_host", "127.0.0.1")
-        port = self.config.get("rcon_port", 25575)
+        port = self.config.get("rcon_port", 21114)  # Squad 默认
         password = self.config.get("rcon_password")
 
         if not password:
@@ -41,7 +39,7 @@ class SquadRconPlugin:
             return
 
         await event.reply(
-            f"🎮【战术小队 RCON】\n"
+            f"🎮【Squad RCON】\n"
             f"📤 命令：{command}\n"
             f"📥 返回：\n{result}"
         )

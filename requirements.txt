@@ -1,1 +1,1 @@
-gamercon-async
+gamercon-async>=1.0.0
